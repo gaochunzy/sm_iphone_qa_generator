@@ -1,0 +1,18 @@
+This script can help you to generate QA files for Supermemo iPhone easily.
+
+About the database:
+It extracts definitions from the New Oxford American Dictionary, so you need to buy this App first and get the "app.db" file from its ".ipa" file.
+
+You can find the ".ipa" file from the "YOUR DOCUMENTS/iTunes/Mobile Applications" directory.
+
+How to use:
+1. Put all your words in a single text file. For example: words.txt.
+2. Place SMGenerator.py, app.db, and your text file in the same direcotry.
+3. Enter "python SMGenerator.py YOUR_FILE" in the console. YOUR_FILE is your file's name.
+4. Import the generated file in Supermemo iPhone through WiFi or http://www.supermemo.net. If you perfer the second way, you may register in that website first.
+
+Have fun!
+
+Wu Xudong.
+Hangzhou Dianzi University.
+tikiet@gmail.com
