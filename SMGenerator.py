@@ -15,7 +15,8 @@ EXAMPLE_FONT = "Baskerville-Italic"
 EXAMPLE_SIZE = "4";
 ENTRY_INDEX_FONT = "Courier-Bold"
 ENTRY_INDEX_SIZE = "4"
-SPECIAL_USE_INDICATOR = "&#x2023;"
+
+SPECIAL_USE_INDICATOR = u'\u2023'
 
 def main():
 	if len(sys.argv) != 3:
