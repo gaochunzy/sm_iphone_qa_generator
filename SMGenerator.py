@@ -16,14 +16,16 @@ EXAMPLE_SIZE = "4";
 ENTRY_INDEX_FONT = "Courier-Bold"
 ENTRY_INDEX_SIZE = "4"
 SPECIAL_USE_INDICATOR = "&#x2023;"
+
 def main():
-	if len(sys.argv) != 2:
-		print "Usage: python SMGenerato.py YOUR_FILE'S_NAME"
+	if len(sys.argv) != 3:
+		print "Usage: python SMGenerato.py YOUR_FILE'S_NAME OUTPUT_FILE_NAME"
 	db = sqlite3.connect("app.db")
 	cursor = db.cursor()
 
 	word_file = open(sys.argv[1])
-	
+	output = open(sys.argv[2], mode='w');
+
 	while True:
 		line = word_file.readline()
 		if not line: break
@@ -108,6 +110,8 @@ def main():
 					pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE + '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pr[0].text + "</font>";
 		else:
 			pronunciation = ""
-		print "Q: " + Question + " |" + pronunciation + "|" +  "\n" + "A: " + Answer									
+		
+		out_text = "Q: " + Question + " |" + pronunciation + "|" +  "\n" + "A: " + Answer
+		output.write(out_text.encode('utf8'))
 if __name__ == "__main__":
 	main()
