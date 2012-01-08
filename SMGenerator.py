@@ -111,7 +111,10 @@ def main():
 		else:
 			pronunciation = ""
 		
-		out_text = "Q: " + Question + " |" + pronunciation + "|" +  "\n" + "A: " + Answer
+		out_text = "Q: " + Question + " |" + pronunciation + "|" +  "\n" + "A: " + Answer + "\n\n"
 		output.write(out_text.encode('utf8'))
+
+	output.close()
+	db.close()
 if __name__ == "__main__":
 	main()
