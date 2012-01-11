@@ -25,16 +25,22 @@ def main():
 	cursor = db.cursor()
 
 	word_file = open(sys.argv[1])
-	output = open(sys.argv[2], mode='w');
+	output = open(sys.argv[2], mode='w')
+	unrcg = open("unrecognized.txt", mode='a')
 
 	while True:
 		line = word_file.readline()
 		if not line: break
+		if line.strip() == "": continue
 		word = line.split()[0]
 	
-		cursor.execute("SELECT entry FROM entries WHERE word LIKE \"" + word + "\"")
+		cursor.execute("SELECT entry FROM entries WHERE word = \"" + word + "\" OR lower_word =\"" + word + "\"")
 		stuff = cursor.fetchall()
-		if len(stuff) < 1: continue
+		if len(stuff) < 1: 
+			print "Can't find: " + word
+			unrcg.write(word + "\n")			
+			continue
+		
 		result = stuff[0][0]
 	
 		if result == None: continue
@@ -58,8 +64,11 @@ def main():
 					Answer = Answer + '<font face="' + ENTRY_INDEX_FONT + '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
 					entry_index = entry_index + 1
 
-				for definition in entry.findall('d'):
-					Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + definition.text + ' </font>'
+				definitions = entry.findall('d')
+				if len(definitions) > 0:
+					for definition in definitions:
+						if definition != None and definition.text != None:	
+							Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + definition.text + ' </font>'
 
 				examples = entry.findall('ex')
 				if examples != None: 
@@ -84,7 +93,8 @@ def main():
 								spec_defs = case.findall('d')
 								if spec_defs != None:
 									for spec_def in spec_defs:
-										Answer = Answer + spec_def.text
+										if spec_def != None and spec_def.text != None:
+											Answer = Answer + spec_def.text
 
 								spec_examples = case.findall('ex')
 								if spec_examples != None:
@@ -107,8 +117,12 @@ def main():
 			pg = head[0].findall("pg")
 			if len(pg) > 0:
 				pr = pg[0].findall("pr")
-				if len(pr) > 0 and pr != None:
+				if len(pr) > 0 and pr != None and pr[0] != None and pr[0].text != None:
 					pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE + '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pr[0].text + "</font>";
+				else: 
+					pronunciation = ""
+			else:
+				pronunciation = ""
 		else:
 			pronunciation = ""
 		
