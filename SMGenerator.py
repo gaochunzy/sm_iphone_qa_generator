@@ -1,5 +1,6 @@
 # SMGenerator.py
 
+import time
 import re
 import sys
 import sqlite3
@@ -19,13 +20,17 @@ ENTRY_INDEX_SIZE = "4"
 SPECIAL_USE_INDICATOR = u'\u2023'
 
 def main():
-	if len(sys.argv) != 3:
-		print "Usage: python SMGenerato.py YOUR_FILE'S_NAME OUTPUT_FILE_NAME"
+	if len(sys.argv) != 3 and len(sys.argv) != 2:
+		print "Usage: python SMGenerator.py YOUR_FILE'S_NAME [OUTPUT_FILE_NAME]"
 	db = sqlite3.connect("app.db")
 	cursor = db.cursor()
 
 	word_file = open(sys.argv[1])
-	output = open(sys.argv[2], mode='w')
+	if len(sys.argv) == 3:
+		output = open(sys.argv[2], mode='w')
+	else:
+		output = open('SMGenerator-' + time.strftime('%Y-%m-%d%H-%M-%S') + '.txt', mode='w')
+
 	unrcg = open("unrecognized.txt", mode='a')
 
 	while True:
