@@ -88,13 +88,17 @@ def main():
 	db = sqlite3.connect("app.db")
 	cursor = db.cursor()
 
+	# open input file
 	word_file = open(sys.argv[input_file_index()])
 
+	# if output file is specified, create it, or generate a output name with current time.
 	if number_of_files == 2:
 		output = open(sys.argv[output_file_index()], mode='w')
 	else:
 		output = open('SMGenerator-' + time.strftime('%Y-%m-%d-%H-%M-%S') + '.txt', mode='w')
 
+	# open the file and put all unrecognized word in it.
+	# It's a temporary way.. I will take some way neater...
 	unrecognize_word_file = "unrecognized.txt"
 	unrcg = open(unrecognize_word_file, mode='a')
 
@@ -136,14 +140,16 @@ def main():
 
 			for entry in entries:
 				if entry_index > 0:
-					Answer = Answer + '<font face="' + ENTRY_INDEX_FONT + '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
+					Answer = Answer + '<font face="' + ENTRY_INDEX_FONT \
+					+ '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
 					entry_index = entry_index + 1
 
 				definitions = entry.findall('d')
 				if len(definitions) > 0:
 					for definition in definitions:
 						if definition != None and definition.text != None:	
-							Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + definition.text + ' </font>'
+							Answer = Answer + '<font face="' + DEFINITION_FONT \
+							+ '">' + definition.text + ' </font>'
 
 				examples = entry.findall('ex')
 				if examples != None: 
@@ -154,7 +160,8 @@ def main():
 						else:
 							Answer = Answer + " | "
 						
-						Answer = Answer + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">' +  re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
+						Answer = Answer + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">'\
+						 +  re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
 
 					Answer = Answer + '<br/>'
 				
@@ -181,7 +188,8 @@ def main():
 										else:
 											Answer = Answer + " | "
 
-										Answer = Answer + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">' + re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", tostring(spec_example)) + '</font>'
+										Answer = Answer + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">' \
+										+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", tostring(spec_example)) + '</font>'
 								Answer = Answer + '<br/>'
 				
 				Answer = Answer + '<hr/>'
@@ -193,7 +201,8 @@ def main():
 			if len(pg) > 0:
 				pr = pg[0].findall("pr")
 				if len(pr) > 0 and pr != None and pr[0] != None and pr[0].text != None:
-					pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE + '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pr[0].text + "</font>";
+					pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE \
+					+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pr[0].text + "</font>";
 				else: 
 					pronunciation = ""
 			else:
