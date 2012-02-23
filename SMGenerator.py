@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # SMGenerator.py
 
 import time
@@ -19,19 +20,88 @@ ENTRY_INDEX_SIZE = "4"
 
 SPECIAL_USE_INDICATOR = u'\u2023'
 
+#global variables about running status
+global DEBUG 
+global VERBOSE
+
+DEBUG=False
+VERBOSE=False
+
+# parse command line options and set specific global variables
+def parse_command_line_option(argument):
+	global VERBOSE
+	for option in range(1, len(argument)):
+		if argument[option] == 'v':
+			VERBOSE=True
+		else:
+			print "Unknown option '" + argument[option] + "'"
+			return False
+	return True
+
+# return files specified in command line
+# every arguments start with '-' is considered as an option
+def count_IO_files():
+	count = 0
+	for arg in range(1, len(sys.argv)):
+		if(sys.argv[arg][0] != '-'):
+			count += 1
+	return count
+	
+def help():
+	print "Usage:  python SMGenerator.py YOUR_FILE'S_NAME [OUTPUT_FILE_NAME]"
+	print "Option: -v: display extra information where processing"
+	
+def input_file_index():
+	for index in range(1, len(sys.argv)):
+		if(sys.argv[index][0] != '-'):
+			return index
+	return -1
+
+def output_file_index():
+	input_file_hit = False
+	for index in range(1, len(sys.argv)):
+		if(sys.argv[index][0] != '-'):
+			if input_file_hit == False:
+				input_file_hit = True
+			else:
+				return index
+	return -1
+
 def main():
-	if len(sys.argv) != 3 and len(sys.argv) != 2:
-		print "Usage: python SMGenerator.py YOUR_FILE'S_NAME [OUTPUT_FILE_NAME]"
+	global VERBOSE
+	# detect command line options
+	for argument_index in range(1, len(sys.argv)):
+		if sys.argv[argument_index][0] == '-':
+			# exit if parsing failed
+			if parse_command_line_option(sys.argv[argument_index]) != True:
+				sys.exit()
+	
+	# check whether input/output files are correctly specified.
+	number_of_files = count_IO_files();
+	if number_of_files < 1 or number_of_files > 2:
+		help()
+		sys.exit()
+	
+	if VERBOSE == True:	
+		print "[SMG] Total", number_of_files, "file(s)"
+
 	db = sqlite3.connect("app.db")
 	cursor = db.cursor()
 
-	word_file = open(sys.argv[1])
-	if len(sys.argv) == 3:
-		output = open(sys.argv[2], mode='w')
-	else:
-		output = open('SMGenerator-' + time.strftime('%Y-%m-%d%H-%M-%S') + '.txt', mode='w')
+	word_file = open(sys.argv[input_file_index()])
 
-	unrcg = open("unrecognized.txt", mode='a')
+	if number_of_files == 2:
+		output = open(sys.argv[output_file_index()], mode='w')
+	else:
+		output = open('SMGenerator-' + time.strftime('%Y-%m-%d-%H-%M-%S') + '.txt', mode='w')
+
+	unrecognize_word_file = "unrecognized.txt"
+	unrcg = open(unrecognize_word_file, mode='a')
+
+	if VERBOSE == True:
+		print "[SMG] Input file: ", word_file.name
+		print "[SMG] Output file:", output.name
+		print "[SMG] Unrecognized words will be put in", unrcg.name
 
 	while True:
 		line = word_file.readline()
@@ -42,7 +112,7 @@ def main():
 		cursor.execute("SELECT entry FROM entries WHERE word = \"" + word + "\" OR lower_word =\"" + word + "\"")
 		stuff = cursor.fetchall()
 		if len(stuff) < 1: 
-			print "Can't find: " + word
+			print "[SMG] Can't find: " + word
 			unrcg.write(word + "\n")			
 			continue
 		
