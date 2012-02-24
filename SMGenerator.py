@@ -33,6 +33,9 @@ def parse_command_line_option(argument):
 	for option in range(1, len(argument)):
 		if argument[option] == 'v':
 			VERBOSE=True
+		elif argument[option] == 'h':
+			help()
+			return False
 		else:
 			print "Unknown option '" + argument[option] + "'"
 			return False
@@ -48,8 +51,11 @@ def count_IO_files():
 	return count
 	
 def help():
-	print "Usage:  python SMGenerator.py YOUR_FILE'S_NAME [OUTPUT_FILE_NAME]"
+	print "Usage:  python SMGenerator.py INPUT_FILE [OUTPUT_FILE]"
+	print "        INPUT_FILE is the file where you put your words in."
+	print "        OUTPUT_FILE(optional) is the file that store all the output."
 	print "Option: -v: display extra information where processing"
+	print "        -h: display this help"
 	
 def input_file_index():
 	for index in range(1, len(sys.argv)):
@@ -191,9 +197,11 @@ def main():
 										else:
 											Answer = Answer + " | "
 
+										spec_example_text = re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", \
+													tostring(spec_example)) 
 										Answer = Answer + '<font face="' + EXAMPLE_FONT \
 										+ '" size="' + EXAMPLE_SIZE + '">' \
-										+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", tostring(spec_example)) \
+										+ spec_example_text \
 										+ '</font>'
 								Answer = Answer + '<br/>'
 				
@@ -206,8 +214,9 @@ def main():
 			if len(pg) > 0:
 				pr = pg[0].findall("pr")
 				if len(pr) > 0 and pr != None and pr[0] != None and pr[0].text != None:
+					pronunciation_text = re.sub("[^<]*<pr>(.*)</pr>.*", "\\1", tostring(pr[0]))
 					pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE \
-					+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pr[0].text + "</font>";
+					+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pronunciation_text + "</font>"
 				else: 
 					pronunciation = ""
 			else:
