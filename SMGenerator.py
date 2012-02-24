@@ -113,7 +113,9 @@ def main():
 		if line.strip() == "": continue
 		word = line.split()[0]
 	
-		cursor.execute("SELECT entry FROM entries WHERE word = \"" + word + "\" OR lower_word =\"" + word + "\"")
+		cursor.execute("SELECT entry FROM entries WHERE word = \"" \
+		+ word + "\" OR lower_word =\"" + word + "\"")
+
 		stuff = cursor.fetchall()
 		if len(stuff) < 1: 
 			print "[SMG] Can't find: " + word
@@ -160,8 +162,9 @@ def main():
 						else:
 							Answer = Answer + " | "
 						
-						Answer = Answer + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">'\
-						 +  re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
+						Answer = Answer + '<font face="' + EXAMPLE_FONT \
+						+ '" size="' + EXAMPLE_SIZE + '">'\
+						+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
 
 					Answer = Answer + '<br/>'
 				
@@ -188,8 +191,10 @@ def main():
 										else:
 											Answer = Answer + " | "
 
-										Answer = Answer + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">' \
-										+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", tostring(spec_example)) + '</font>'
+										Answer = Answer + '<font face="' + EXAMPLE_FONT \
+										+ '" size="' + EXAMPLE_SIZE + '">' \
+										+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", tostring(spec_example)) \
+										+ '</font>'
 								Answer = Answer + '<br/>'
 				
 				Answer = Answer + '<hr/>'
