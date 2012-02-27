@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # SMGenerator.py
 
-import string
 import time
 import re
 import sys
@@ -21,7 +20,9 @@ ENTRY_INDEX_SIZE = "4"
 
 SPECIAL_USE_INDICATOR = u'\u2023'
 
-#global variables about running status
+#global variables about running status and others
+global db
+global cursor
 global DEBUG 
 global VERBOSE
 
@@ -78,13 +79,23 @@ def output_file_index():
 
 def parse_definition(definitions):
 	definition_text = ""
+	stack = []
+	status = "NORMAL"
 
 	for definition in definitions:
+		print tostring(definition),
+		if re.match("[^<]*<d>[^<]*<xrefGrp>[^<]*<xref[^>]*>[^<]*<x>[^<]*</x>[^<]*</xref>[^<]*</xrefGrp>[^<]*</d>.*", tostring(definition)):
+			xrefWord = re.sub("[^<]*<d>[^<]*<xrefGrp>[^<]*<xref[^>]*>[^<]*<x>([^<]*)</x>[^<]*</xref>[^<]*</xrefGrp>[^<]*</d>.*","\\1", tostring(definition));
+			xrefText = parse_entry(xrefWord)
+			if xrefText != None:
+				stack.append(xrefText)
+				status = "CROSSREF"
+
 		if definition != None and definition.text != None:	
 			definition_text = definition_text + '<font face="' + DEFINITION_FONT \
 			+ '">' + definition.text + ' </font>'
 
-	return definition_text
+	return (status,definition_text, stack)
 
 
 def parse_example(examples):
@@ -140,8 +151,115 @@ def parse_special_use(special_use):
 	return special_use_text
 
 	
+def parse_entry_head(head):
+	pronunciation = ""
+
+	pg = head[0].findall("pg")
+	if len(pg) > 0:
+		pr = pg[0].findall("pr")
+		if len(pr) > 0 and pr != None and pr[0] != None and pr[0].text != None:
+			pronunciation_text = re.sub("[^<]*<pr>(.*)</pr>.*", "\\1", tostring(pr[0]))
+			pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE \
+			+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pronunciation_text + "</font>"
+
+	return pronunciation
+
+
+def parse_entry(word):
+	global db
+	global cursor
+
+	global unrcg
+
+	entry_text = ""
+
+	if VERBOSE:
+		print '[SMG] Fetching "'+ word+'".'
+
+	cursor.execute("SELECT entry FROM entries WHERE word = \"" \
+	+ word + "\" OR lower_word =\"" + word + "\"")
+
+	stuff = cursor.fetchall()
+	if len(stuff) < 1: 
+		print "[SMG] Can't find: " + word
+		unrcg.write(word + "\n")			
+		return	
+	
+	result = stuff[0][0]
+
+	if result == None: return
+
+	Answer = "";
+	Question = "";
+	ps = None
+	pl = None
+	cross_reference_stack = []
+
+	dom = fromstring(result)
+	for part_of_speech in dom.findall('sb'):
+		pl = part_of_speech.find('pl')
+		if pl != None: ps = pl.find('ps')
+		if ps != None: Answer = Answer + ps.text + "<br/>"
+
+		entries = part_of_speech.findall('se')
+		if len(entries) < 2:
+			entry_index = 0
+		else:
+			entry_index = 1
+
+		for entry in entries:
+			if entry_index > 0:
+				Answer = Answer + '<font face="' + ENTRY_INDEX_FONT \
+				+ '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
+				entry_index = entry_index + 1
+
+			definitions = entry.findall('d')
+			if len(definitions) > 0:
+				parsed_text = parse_definition(definitions)
+				if parsed_text[0] == "NORMAL":
+					definition_text = parsed_text[1] 
+					if definition_text.strip() != "":
+						Answer = Answer + definition_text
+				elif parsed_text[0] == "CROSSREF":
+					print "HIT",
+					while len(parsed_text[2]) > 0:
+						cross_reference_stack.append(parsed_text[2].pop())
+
+			examples = entry.findall('ex')
+			if len(examples) > 0: 
+				example_text = parse_example(examples)
+				if example_text.strip() != "":
+					Answer = Answer + example_text
+
+			Answer = Answer + '<br/>'
+			
+			special_use = entry.findall('specUse')
+			if special_use != None:
+				special_use_text = parse_special_use(special_use)
+				if special_use_text.strip() != "":
+					Answer = Answer + special_use_text
+			
+			Answer = Answer + '<hr/>'
+	Question = '<font face="' + QUESTION_FONT + '" size="' + QUESTION_SIZE + '">' + word + "</font>"
+
+	head = dom.findall('h')
+	pronunciation =""
+	if len(head) > 0:
+		pronunciation = parse_entry_head(head)		
+	
+	while len(cross_reference_stack) > 0:
+		cross_ref_item = cross_reference_stack.pop()
+		Answer = Answer + cross_ref_item[0] + " |" + cross_ref_item[1] + "|" +  "\n" + cross_ref_item[2] + "\n"
+	return (Question, pronunciation, Answer)
+	
+
 def main():
 	global VERBOSE
+	global db
+	global cursor
+
+	global unrcg
+
 	# detect command line options
 	for argument_index in range(1, len(sys.argv)):
 		if sys.argv[argument_index][0] == '-':
@@ -185,84 +303,12 @@ def main():
 		if not line: break
 		if line.strip() == "": continue
 		word = line.split()[0]
-	
-		if VERBOSE:
-			print '[SMG] Fetching "'+ word+'".'
-
-		cursor.execute("SELECT entry FROM entries WHERE word = \"" \
-		+ word + "\" OR lower_word =\"" + word + "\"")
-
-		stuff = cursor.fetchall()
-		if len(stuff) < 1: 
-			print "[SMG] Can't find: " + word
-			unrcg.write(word + "\n")			
-			continue
+		entry_text = parse_entry(word)
 		
-		result = stuff[0][0]
-	
-		if result == None: continue
-
-		Answer = "";
-		Question = "";
-		dom = fromstring(result)
-		for part_of_speech in dom.findall('sb'):
-			pl = part_of_speech.find('pl')
-			if pl != None: ps = pl.find('ps')
-			if ps != None: Answer = Answer + ps.text + "<br/>"
-
-			entries = part_of_speech.findall('se')
-			if len(entries) < 2:
-				entry_index = 0
-			else:
-				entry_index = 1
-
-			for entry in entries:
-				if entry_index > 0:
-					Answer = Answer + '<font face="' + ENTRY_INDEX_FONT \
-					+ '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
-					entry_index = entry_index + 1
-
-				definitions = entry.findall('d')
-				if len(definitions) > 0:
-					definition_text = parse_definition(definitions)
-					if definition_text.strip() != "":
-						Answer = Answer + definition_text
-
-				examples = entry.findall('ex')
-				if len(examples) > 0: 
-					example_text = parse_example(examples)
-					if example_text.strip() != "":
-						Answer = Answer + example_text
-
-				Answer = Answer + '<br/>'
-				
-				special_use = entry.findall('specUse')
-				if special_use != None:
-					special_use_text = parse_special_use(special_use)
-					if special_use_text.strip() != "":
-						Answer = Answer + special_use_text
-				
-				Answer = Answer + '<hr/>'
-		Question = '<font face="' + QUESTION_FONT + '" size="' + QUESTION_SIZE + '">' + word + "</font>"
-
-		head = dom.findall('h')
-		if len(head) > 0:
-			pg = head[0].findall("pg")
-			if len(pg) > 0:
-				pr = pg[0].findall("pr")
-				if len(pr) > 0 and pr != None and pr[0] != None and pr[0].text != None:
-					pronunciation_text = re.sub("[^<]*<pr>(.*)</pr>.*", "\\1", tostring(pr[0]))
-					pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE \
-					+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pronunciation_text + "</font>"
-				else: 
-					pronunciation = ""
-			else:
-				pronunciation = ""
-		else:
-			pronunciation = ""
-		
-		out_text = "Q: " + Question + " |" + pronunciation + "|" +  "\n" + "A: " + Answer + "\n\n"
-		output.write(out_text.encode('utf8'))
+		if entry_text != None:
+			out_text = "Q: " + entry_text[0] + " |" + entry_text[1] + "|" +  "\n" + "A: " + entry_text[2] + "\n\n"
+			if out_text.strip() != "":	
+				output.write(out_text.encode('utf8'))
 
 	output.close()
 	db.close()
