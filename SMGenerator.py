@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # SMGenerator.py
 
+import string
 import time
 import re
 import sys
@@ -65,6 +66,7 @@ def input_file_index():
 
 def output_file_index():
 	input_file_hit = False
+
 	for index in range(1, len(sys.argv)):
 		if(sys.argv[index][0] != '-'):
 			if input_file_hit == False:
@@ -73,6 +75,71 @@ def output_file_index():
 				return index
 	return -1
 
+
+def parse_definition(definitions):
+	definition_text = ""
+
+	for definition in definitions:
+		if definition != None and definition.text != None:	
+			definition_text = definition_text + '<font face="' + DEFINITION_FONT \
+			+ '">' + definition.text + ' </font>'
+
+	return definition_text
+
+
+def parse_example(examples):
+	example_text = ""
+	example_tag = 0
+
+	for example in examples:
+		if example_tag == 0:
+			example_tag = 1
+		else:
+			example_text = example_text + " | "
+		
+		example_text = example_text + '<font face="' + EXAMPLE_FONT \
+		+ '" size="' + EXAMPLE_SIZE + '">'\
+		+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
+	
+	return example_text
+
+
+def parse_special_use(special_use):
+	special_use_text = ""
+
+	for spec in special_use:
+		cases = spec.findall('MS')
+		if cases != None:
+			for case in cases:
+				if re.match('<MS core="no">.*((<d>.*</d>)|(<ex>.*</ex>)).*</MS>', tostring(case)):
+					special_use_text = special_use_text + SPECIAL_USE_INDICATOR + " "
+					spec_defs = case.findall('d')
+					if spec_defs != None:
+						for spec_def in spec_defs:
+							if spec_def != None and spec_def.text != None:
+								special_use_text = special_use_text + spec_def.text
+
+					spec_examples = case.findall('ex')
+					if spec_examples != None:
+						spec_example_tag = 0
+
+						for spec_example in spec_examples:
+							if spec_example_tag == 0:
+								spec_example_tag = 1
+							else:
+								special_use_text = special_use_text + " | "
+
+							spec_example_text = re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", \
+										tostring(spec_example)) 
+							special_use_text = special_use_text + '<font face="' + EXAMPLE_FONT \
+							+ '" size="' + EXAMPLE_SIZE + '">' \
+							+ spec_example_text \
+							+ '</font>'
+					special_use_text = special_use_text + '<br/>'
+
+	return special_use_text
+
+	
 def main():
 	global VERBOSE
 	# detect command line options
@@ -119,6 +186,9 @@ def main():
 		if line.strip() == "": continue
 		word = line.split()[0]
 	
+		if VERBOSE:
+			print '[SMG] Fetching "'+ word+'".'
+
 		cursor.execute("SELECT entry FROM entries WHERE word = \"" \
 		+ word + "\" OR lower_word =\"" + word + "\"")
 
@@ -154,56 +224,23 @@ def main():
 
 				definitions = entry.findall('d')
 				if len(definitions) > 0:
-					for definition in definitions:
-						if definition != None and definition.text != None:	
-							Answer = Answer + '<font face="' + DEFINITION_FONT \
-							+ '">' + definition.text + ' </font>'
+					definition_text = parse_definition(definitions)
+					if definition_text.strip() != "":
+						Answer = Answer + definition_text
 
 				examples = entry.findall('ex')
-				if examples != None: 
-					example_tag = 0
-					for example in examples:
-						if example_tag == 0:
-							example_tag = 1
-						else:
-							Answer = Answer + " | "
-						
-						Answer = Answer + '<font face="' + EXAMPLE_FONT \
-						+ '" size="' + EXAMPLE_SIZE + '">'\
-						+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
+				if len(examples) > 0: 
+					example_text = parse_example(examples)
+					if example_text.strip() != "":
+						Answer = Answer + example_text
 
-					Answer = Answer + '<br/>'
+				Answer = Answer + '<br/>'
 				
 				special_use = entry.findall('specUse')
 				if special_use != None:
-					for spec in special_use:
-						cases = spec.findall('MS')
-						if cases != None:
-							for case in cases:
-								Answer = Answer + SPECIAL_USE_INDICATOR + " "
-								spec_defs = case.findall('d')
-								if spec_defs != None:
-									for spec_def in spec_defs:
-										if spec_def != None and spec_def.text != None:
-											Answer = Answer + spec_def.text
-
-								spec_examples = case.findall('ex')
-								if spec_examples != None:
-									spec_example_tag = 0
-
-									for spec_example in spec_examples:
-										if spec_example_tag == 0:
-											spec_example_tag = 1
-										else:
-											Answer = Answer + " | "
-
-										spec_example_text = re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", \
-													tostring(spec_example)) 
-										Answer = Answer + '<font face="' + EXAMPLE_FONT \
-										+ '" size="' + EXAMPLE_SIZE + '">' \
-										+ spec_example_text \
-										+ '</font>'
-								Answer = Answer + '<br/>'
+					special_use_text = parse_special_use(special_use)
+					if special_use_text.strip() != "":
+						Answer = Answer + special_use_text
 				
 				Answer = Answer + '<hr/>'
 		Question = '<font face="' + QUESTION_FONT + '" size="' + QUESTION_SIZE + '">' + word + "</font>"
