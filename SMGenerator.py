@@ -95,7 +95,7 @@ def parse_example(examples):
 	return example_text
 
 
-def parse_definition(definitions):
+def parse_definition(definitions, referenced_item_stack=[]):
 	definition_text = ""
 	stack = []
 	status = "NORMAL"
@@ -104,20 +104,21 @@ def parse_definition(definitions):
 		if re.match(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^>]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</d>.*", tostring(definition)):
 			xrefWord = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^>]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</d>.*","\\1", tostring(definition));
 			xrefHint = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</d>.*", "\\1", tostring(definition));
-			xrefText = parse_entry(xrefWord)
-			if xrefText != None:
-				stack.append(xrefText)
-				status = "CROSSREF"
+
+			if xrefWord not in reference_item_stack:
+				reference_item_stack.append(xrefWord)
+				xrefText = parse_entry(xrefWord)
+				if xrefText != None:
+					stack.append(xrefText)
+					status = "CROSSREF"
 			definition_text = definition_text + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
 		elif definition != None and definition.text != None:	
-			print tostring(definition)
 			definition_text = definition_text + '<font face="' + DEFINITION_FONT + '">' + re.sub(".*<d[^<]*>(.*)</d>.*", "\\1", tostring(definition)) + ' </font>'
-			print definition_text
 
 	#if upper_status == "CROSSREF":
 	#	status = "NORMAL"
 
-	return (status,definition_text, stack)
+	return (status,definition_text, stack, referenced_item_stack)
 
 
 
@@ -135,7 +136,6 @@ def parse_special_use(special_use):
 					spec_defs = case.findall('d')
 					if spec_defs != None:
 						for spec_def in spec_defs:
-							print tostring(spec_def)
 							if re.match(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</d>.*", tostring(spec_def)):
 								xrefWord = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</d>.*","\\1", tostring(spec_def));
 								xrefHint = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</d>.*", "\\1", tostring(spec_def));
@@ -168,6 +168,9 @@ def parse_special_use(special_use):
 	
 def parse_entry_head(head):
 	pronunciation = ""
+	hw_text = ""
+
+	hw_text = re.sub(".*<hw[^<]*>(.*)</hw>.*", "\\1", tostring(head[0]))
 
 	pg = head[0].findall("pg")
 	if len(pg) > 0:
@@ -177,16 +180,20 @@ def parse_entry_head(head):
 			pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE \
 			+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pronunciation_text + "</font>"
 
-	return pronunciation
+	return (pronunciation, hw_text)
 
 
-def parse_entry(word):
+def parse_entry(word, referenced_item_stack=[]):
 	global db
 	global cursor
 
 	global unrcg
 
 	entry_text = ""
+	if word in referenced_item_stack:
+		pass
+	else:
+		referenced_item_stack.append(word)
 
 	if VERBOSE:
 		print '[SMG] Fetching "'+ word+'".'
@@ -232,9 +239,11 @@ def parse_entry(word):
 			if re.match(".*<se[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</se>.*", tostring(entry)):
 				xrefWord = re.sub(".*<se[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</se>.*","\\1", tostring(entry));
 				xrefHint = re.sub(".*<se[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</se>.*", "\\1", tostring(entry));
-				xrefText = parse_entry(xrefWord)
-				if xrefText != None:
-					cross_reference_stack.append(xrefText)
+			
+				if xrefWord not in referenced_item_stack:
+					xrefText = parse_entry(xrefWord)
+					if xrefText != None:
+						cross_reference_stack.append(xrefText)
 				Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
 			else:
 				definitions = entry.findall('d')
@@ -273,7 +282,11 @@ def parse_entry(word):
 	head = dom.findall('h')
 	pronunciation =""
 	if len(head) > 0:
-		pronunciation = parse_entry_head(head)		
+		head_info = parse_entry_head(head)
+		pronunciation = head_info[0]
+		if head_info[1].strip() != "":
+			Question = '<font face="' + QUESTION_FONT + '" size="' + QUESTION_SIZE + '">' + head_info[1] + "</font>"
+			 
 	
 	while len(cross_reference_stack) > 0:
 		cross_ref_item = cross_reference_stack.pop()
