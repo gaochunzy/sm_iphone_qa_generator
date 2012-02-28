@@ -77,56 +77,74 @@ def output_file_index():
 	return -1
 
 
+def parse_example(examples):
+	example_text = ""
+	example_tag = 0
+
+	for example in examples:
+		if re.match(".*<ex[^<]*>.*</ex>.*", tostring(example)):
+			if example_tag == 0:
+				example_tag = 1
+			else:
+				example_text = example_text + " | "
+			
+			example_text = example_text + '<font face="' + EXAMPLE_FONT \
+			+ '" size="' + EXAMPLE_SIZE + '">'\
+			+ re.sub("[^<]*<ex[^<]*>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
+	
+	return example_text
+
+
 def parse_definition(definitions):
 	definition_text = ""
 	stack = []
 	status = "NORMAL"
 
 	for definition in definitions:
-		print tostring(definition),
-		if re.match("[^<]*<d>[^<]*<xrefGrp>[^<]*<xref[^>]*>[^<]*<x>[^<]*</x>[^<]*</xref>[^<]*</xrefGrp>[^<]*</d>.*", tostring(definition)):
-			xrefWord = re.sub("[^<]*<d>[^<]*<xrefGrp>[^<]*<xref[^>]*>[^<]*<x>([^<]*)</x>[^<]*</xref>[^<]*</xrefGrp>[^<]*</d>.*","\\1", tostring(definition));
+		if re.match(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^>]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</d>.*", tostring(definition)):
+			xrefWord = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^>]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</d>.*","\\1", tostring(definition));
+			xrefHint = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</d>.*", "\\1", tostring(definition));
 			xrefText = parse_entry(xrefWord)
 			if xrefText != None:
 				stack.append(xrefText)
 				status = "CROSSREF"
+			definition_text = definition_text + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
+		elif definition != None and definition.text != None:	
+			print tostring(definition)
+			definition_text = definition_text + '<font face="' + DEFINITION_FONT + '">' + re.sub(".*<d[^<]*>(.*)</d>.*", "\\1", tostring(definition)) + ' </font>'
+			print definition_text
 
-		if definition != None and definition.text != None:	
-			definition_text = definition_text + '<font face="' + DEFINITION_FONT \
-			+ '">' + definition.text + ' </font>'
+	#if upper_status == "CROSSREF":
+	#	status = "NORMAL"
 
 	return (status,definition_text, stack)
 
 
-def parse_example(examples):
-	example_text = ""
-	example_tag = 0
-
-	for example in examples:
-		if example_tag == 0:
-			example_tag = 1
-		else:
-			example_text = example_text + " | "
-		
-		example_text = example_text + '<font face="' + EXAMPLE_FONT \
-		+ '" size="' + EXAMPLE_SIZE + '">'\
-		+ re.sub("[^<]*<ex>(.*)</ex>.*", "\\1",tostring(example)) + '</font>'
-	
-	return example_text
-
 
 def parse_special_use(special_use):
 	special_use_text = ""
+	stack = []
+	status = "NORMAL"
 
 	for spec in special_use:
 		cases = spec.findall('MS')
 		if cases != None:
 			for case in cases:
-				if re.match('<MS core="no">.*((<d>.*</d>)|(<ex>.*</ex>)).*</MS>', tostring(case)):
+				if re.match('<MS core="no">.*((<d[^<]*>.*</d>)|(<ex[^<]*>.*</ex>))*.*</MS>', tostring(case)):
 					special_use_text = special_use_text + SPECIAL_USE_INDICATOR + " "
 					spec_defs = case.findall('d')
 					if spec_defs != None:
 						for spec_def in spec_defs:
+							print tostring(spec_def)
+							if re.match(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</d>.*", tostring(spec_def)):
+								xrefWord = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</d>.*","\\1", tostring(spec_def));
+								xrefHint = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</d>.*", "\\1", tostring(spec_def));
+								xrefText = parse_entry(xrefWord)
+								if xrefText != None:
+									stack.append(xrefText)
+									status = "CROSSREF"
+								special_use_text = special_use_text + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
+								
 							if spec_def != None and spec_def.text != None:
 								special_use_text = special_use_text + spec_def.text
 
@@ -140,15 +158,12 @@ def parse_special_use(special_use):
 							else:
 								special_use_text = special_use_text + " | "
 
-							spec_example_text = re.sub("[^<]*<ex>(.*)</ex>.*", "\\1", \
-										tostring(spec_example)) 
-							special_use_text = special_use_text + '<font face="' + EXAMPLE_FONT \
-							+ '" size="' + EXAMPLE_SIZE + '">' \
-							+ spec_example_text \
-							+ '</font>'
+							spec_example_text = re.sub("[^<]*<ex[^<]*>(.*)</ex>.*", "\\1", tostring(spec_example)) 
+							special_use_text = special_use_text + '<font face="' + EXAMPLE_FONT + '" size="' + EXAMPLE_SIZE + '">' \
+							+ spec_example_text + '</font>'
 					special_use_text = special_use_text + '<br/>'
 
-	return special_use_text
+	return (status,special_use_text, stack)
 
 	
 def parse_entry_head(head):
@@ -157,8 +172,8 @@ def parse_entry_head(head):
 	pg = head[0].findall("pg")
 	if len(pg) > 0:
 		pr = pg[0].findall("pr")
-		if len(pr) > 0 and pr != None and pr[0] != None and pr[0].text != None:
-			pronunciation_text = re.sub("[^<]*<pr>(.*)</pr>.*", "\\1", tostring(pr[0]))
+		if len(pr) > 0 and pr != None and pr[0] != None: 
+			pronunciation_text = re.sub("[^<]*<pr[^<]*>(.*)</pr>.*", "\\1", tostring(pr[0]))
 			pronunciation = '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE \
 			+ '" color="' + PHONETIC_SYMBOL_COLOR + '">' + pronunciation_text + "</font>"
 
@@ -213,31 +228,44 @@ def parse_entry(word):
 				+ '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
 				entry_index = entry_index + 1
 
-			definitions = entry.findall('d')
-			if len(definitions) > 0:
-				parsed_text = parse_definition(definitions)
-				if parsed_text[0] == "NORMAL":
+			
+			if re.match(".*<se[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</se>.*", tostring(entry)):
+				xrefWord = re.sub(".*<se[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</se>.*","\\1", tostring(entry));
+				xrefHint = re.sub(".*<se[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</se>.*", "\\1", tostring(entry));
+				xrefText = parse_entry(xrefWord)
+				if xrefText != None:
+					cross_reference_stack.append(xrefText)
+				Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
+			else:
+				definitions = entry.findall('d')
+				if len(definitions) > 0:
+					parsed_text = parse_definition(definitions)
+
 					definition_text = parsed_text[1] 
 					if definition_text.strip() != "":
 						Answer = Answer + definition_text
-				elif parsed_text[0] == "CROSSREF":
-					print "HIT",
-					while len(parsed_text[2]) > 0:
-						cross_reference_stack.append(parsed_text[2].pop())
+					if parsed_text[0] == "CROSSREF":
+						while len(parsed_text[2]) > 0:
+							cross_reference_stack.append(parsed_text[2].pop())
 
-			examples = entry.findall('ex')
-			if len(examples) > 0: 
-				example_text = parse_example(examples)
-				if example_text.strip() != "":
-					Answer = Answer + example_text
+				examples = entry.findall('ex')
+				if len(examples) > 0: 
+					example_text = parse_example(examples)
+					if example_text.strip() != "":
+						Answer = Answer + example_text
 
-			Answer = Answer + '<br/>'
-			
-			special_use = entry.findall('specUse')
-			if special_use != None:
-				special_use_text = parse_special_use(special_use)
-				if special_use_text.strip() != "":
-					Answer = Answer + special_use_text
+				Answer = Answer + '<br/>'
+				
+				special_use = entry.findall('specUse')
+				if special_use != None:
+					parsed_text = parse_special_use(special_use)
+
+					special_use_text = parsed_text[1]
+					if special_use_text.strip() != "":
+						Answer = Answer + special_use_text
+					if parsed_text[0] == "CROSSREF":
+						while len(parsed_text[2]) > 0:
+							cross_reference_stack.append(parsed_text[2].pop())
 			
 			Answer = Answer + '<hr/>'
 	Question = '<font face="' + QUESTION_FONT + '" size="' + QUESTION_SIZE + '">' + word + "</font>"
@@ -249,10 +277,9 @@ def parse_entry(word):
 	
 	while len(cross_reference_stack) > 0:
 		cross_ref_item = cross_reference_stack.pop()
-		Answer = Answer + cross_ref_item[0] + " |" + cross_ref_item[1] + "|" +  "\n" + cross_ref_item[2] + "\n"
+		Answer = Answer + cross_ref_item[0] + " |" + cross_ref_item[1] + "|" +  "<br/>" + cross_ref_item[2] + "<br/>"
 	return (Question, pronunciation, Answer)
 	
-
 def main():
 	global VERBOSE
 	global db
