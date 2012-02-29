@@ -107,8 +107,9 @@ def parse_definition(definitions, referenced_item_stack=[]):
 
 			if xrefWord not in referenced_item_stack:
 				referenced_item_stack.append(xrefWord)
-				xrefText = parse_entry(xrefWord)
+				xrefText = parse_entry(xrefWord,referenced_item_stack)
 				if xrefText != None:
+					referenced_item_stack = xrefText[3]
 					stack.append(xrefText)
 					status = "CROSSREF"
 			definition_text = definition_text + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
@@ -122,7 +123,7 @@ def parse_definition(definitions, referenced_item_stack=[]):
 
 
 
-def parse_special_use(special_use):
+def parse_special_use(special_use, referenced_item_stack = []):
 	special_use_text = ""
 	stack = []
 	status = "NORMAL"
@@ -139,12 +140,15 @@ def parse_special_use(special_use):
 							if re.match(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</d>.*", tostring(spec_def)):
 								xrefWord = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</d>.*","\\1", tostring(spec_def));
 								xrefHint = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</d>.*", "\\1", tostring(spec_def));
-								xrefText = parse_entry(xrefWord)
-								if xrefText != None:
-									stack.append(xrefText)
-									status = "CROSSREF"
-								special_use_text = special_use_text + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
-								
+								if xrefWord not in referenced_item_stack:
+									referenced_item_stack.append(xrefWord)
+									xrefText = parse_entry(xrefWord,referenced_item_stack)
+									if xrefText != None:
+										referenced_item_stack = xrefText[3]
+										stack.append(xrefText)
+										status = "CROSSREF"
+									special_use_text = special_use_text + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
+									
 							if spec_def != None and spec_def.text != None:
 								special_use_text = special_use_text + spec_def.text
 
@@ -163,7 +167,7 @@ def parse_special_use(special_use):
 							+ spec_example_text + '</font>'
 					special_use_text = special_use_text + '<br/>'
 
-	return (status,special_use_text, stack)
+	return (status,special_use_text, stack, referenced_item_stack)
 
 	
 def parse_entry_head(head):
@@ -269,7 +273,10 @@ def parse_entry(word, referenced_item_stack=[]):
 			
 			special_use = entry.findall('specUse')
 			if special_use != None:
-				parsed_text = parse_special_use(special_use)
+				parsed_text = parse_special_use(special_use, referenced_item_stack)
+				
+				if parsed_text != None and parsed_text[3] != None:
+					referenced_item_stack = parsed_text[3]
 
 				special_use_text = parsed_text[1]
 				if special_use_text.strip() != "":
@@ -284,6 +291,7 @@ def parse_entry(word, referenced_item_stack=[]):
 				if xrefWord not in referenced_item_stack:
 					xrefText = parse_entry(xrefWord, referenced_item_stack)
 					if xrefText != None:
+						referenced_item_stack = xrefText[3]
 						cross_reference_stack.append(xrefText)
 				Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
 			
@@ -302,7 +310,7 @@ def parse_entry(word, referenced_item_stack=[]):
 	while len(cross_reference_stack) > 0:
 		cross_ref_item = cross_reference_stack.pop()
 		Answer = Answer + cross_ref_item[0] + " |" + cross_ref_item[1] + "|" +  "<br/>" + cross_ref_item[2] + "<br/>"
-	return (Question, pronunciation, Answer)
+	return (Question, pronunciation, Answer, referenced_item_stack)
 	
 def main():
 	global VERBOSE
@@ -354,7 +362,7 @@ def main():
 		if not line: break
 		if line.strip() == "": continue
 		word = line.split()[0]
-		entry_text = parse_entry(word)
+		entry_text = parse_entry(word,[])
 		
 		if entry_text != None:
 			out_text = "Q: " + entry_text[0] + " |" + entry_text[1] + "|" +  "\n" + "A: " + entry_text[2] + "\n\n"
