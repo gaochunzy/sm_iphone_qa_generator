@@ -105,8 +105,8 @@ def parse_definition(definitions, referenced_item_stack=[]):
 			xrefWord = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>.*<xref[^>]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</d>.*","\\1", tostring(definition));
 			xrefHint = re.sub(".*<d[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</d>.*", "\\1", tostring(definition));
 
-			if xrefWord not in reference_item_stack:
-				reference_item_stack.append(xrefWord)
+			if xrefWord not in referenced_item_stack:
+				referenced_item_stack.append(xrefWord)
 				xrefText = parse_entry(xrefWord)
 				if xrefText != None:
 					stack.append(xrefText)
@@ -215,13 +215,26 @@ def parse_entry(word, referenced_item_stack=[]):
 	Question = "";
 	ps = None
 	pl = None
+	pr = None
+	pg = None
 	cross_reference_stack = []
 
 	dom = fromstring(result)
 	for part_of_speech in dom.findall('sb'):
 		pl = part_of_speech.find('pl')
-		if pl != None: ps = pl.find('ps')
-		if ps != None: Answer = Answer + ps.text + "<br/>"
+		if pl != None:
+			ps = pl.find('ps')
+			pg = pl.find('pg')
+		if ps != None: Answer = Answer + ps.text #+ "<br/>"
+		if pg != None:
+			if re.match(".*<pg[^<]*>.*<pr[^<]*>.*</pr>.*</pg>.*", tostring(pg)):
+				part_of_speech_pron = re.sub(".*<pg[^<]*>.*<pr[^<]*>(.*)</pr>.*</pg>.*", "\\1", tostring(pg))
+				Answer = Answer + " |" + '<font face="' + PHONETIC_SYMBOL_FONT + '" size="' + PHONETIC_SYMBOL_SIZE + '" color="' + PHONETIC_SYMBOL_COLOR + '">' + part_of_speech_pron + "</font>" + "|"
+				Answer = Answer + "<br/>"
+			else:
+				Answer = Answer + "<br/>"
+		else:		
+			Answer = Answer + "<br/>"
 
 		entries = part_of_speech.findall('se')
 		if len(entries) < 2:
@@ -231,50 +244,48 @@ def parse_entry(word, referenced_item_stack=[]):
 
 		for entry in entries:
 			if entry_index > 0:
-				Answer = Answer + '<font face="' + ENTRY_INDEX_FONT \
-				+ '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
+				Answer = Answer + '<font face="' + ENTRY_INDEX_FONT + '" size="' + ENTRY_INDEX_SIZE + '">' + str(entry_index) + '. </font>'
 				entry_index = entry_index + 1
 
 			
+			definitions = entry.findall('d')
+			if len(definitions) > 0:
+				parsed_text = parse_definition(definitions)
+
+				definition_text = parsed_text[1] 
+				if definition_text.strip() != "":
+					Answer = Answer + definition_text
+				if parsed_text[0] == "CROSSREF":
+					while len(parsed_text[2]) > 0:
+						cross_reference_stack.append(parsed_text[2].pop())
+
+			examples = entry.findall('ex')
+			if len(examples) > 0: 
+				example_text = parse_example(examples)
+				if example_text.strip() != "":
+					Answer = Answer + example_text
+
+			Answer = Answer + '<br/>'
+			
+			special_use = entry.findall('specUse')
+			if special_use != None:
+				parsed_text = parse_special_use(special_use)
+
+				special_use_text = parsed_text[1]
+				if special_use_text.strip() != "":
+					Answer = Answer + special_use_text
+				if parsed_text[0] == "CROSSREF":
+					while len(parsed_text[2]) > 0:
+						cross_reference_stack.append(parsed_text[2].pop())
 			if re.match(".*<se[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>.*</x>.*</xref>.*</xrefGrp>.*</se>.*", tostring(entry)):
 				xrefWord = re.sub(".*<se[^<]*>.*<xrefGrp[^<]*>.*<xref[^<]*>.*<x[^<]*>(.*)</x>.*</xref>.*</xrefGrp>.*</se>.*","\\1", tostring(entry));
 				xrefHint = re.sub(".*<se[^<]*>.*<xrefGrp[^<]*>(.*)</xrefGrp>.*</se>.*", "\\1", tostring(entry));
 			
 				if xrefWord not in referenced_item_stack:
-					xrefText = parse_entry(xrefWord)
+					xrefText = parse_entry(xrefWord, referenced_item_stack)
 					if xrefText != None:
 						cross_reference_stack.append(xrefText)
 				Answer = Answer + '<font face="' + DEFINITION_FONT + '">' + xrefHint + ' </font>'
-			else:
-				definitions = entry.findall('d')
-				if len(definitions) > 0:
-					parsed_text = parse_definition(definitions)
-
-					definition_text = parsed_text[1] 
-					if definition_text.strip() != "":
-						Answer = Answer + definition_text
-					if parsed_text[0] == "CROSSREF":
-						while len(parsed_text[2]) > 0:
-							cross_reference_stack.append(parsed_text[2].pop())
-
-				examples = entry.findall('ex')
-				if len(examples) > 0: 
-					example_text = parse_example(examples)
-					if example_text.strip() != "":
-						Answer = Answer + example_text
-
-				Answer = Answer + '<br/>'
-				
-				special_use = entry.findall('specUse')
-				if special_use != None:
-					parsed_text = parse_special_use(special_use)
-
-					special_use_text = parsed_text[1]
-					if special_use_text.strip() != "":
-						Answer = Answer + special_use_text
-					if parsed_text[0] == "CROSSREF":
-						while len(parsed_text[2]) > 0:
-							cross_reference_stack.append(parsed_text[2].pop())
 			
 			Answer = Answer + '<hr/>'
 	Question = '<font face="' + QUESTION_FONT + '" size="' + QUESTION_SIZE + '">' + word + "</font>"
