@@ -361,7 +361,7 @@ def main():
 		line = word_file.readline()
 		if not line: break
 		if line.strip() == "": continue
-		word = line.split()[0]
+		word = line.strip()
 		entry_text = parse_entry(word,[])
 		
 		if entry_text != None:
